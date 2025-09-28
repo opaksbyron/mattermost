@@ -149,6 +149,90 @@ const AutosizeTextarea = React.forwardRef<HTMLTextAreaElement, Props>(({
         referenceValue += '\n';
     }
 
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+        if (
+            (e.key === "Enter" || (e.key === "Enter" && e.shiftKey)) &&
+            textarea.current
+        ) {
+            const textareaElement = textarea.current;
+            const currentText = textareaElement.value;
+            const selectionStart = textareaElement.selectionStart;
+            //console.log("selectionstart...", selectionStart);
+            const selectionEnd = textareaElement.selectionEnd;
+            //console.log("selectionend...", selectionEnd);
+            const before = currentText.slice(0, selectionStart);
+            // console.log("before...", before);
+            const after = currentText.slice(selectionEnd);
+            //console.log("after...", after);
+            const lines = before.split("\n");
+            //console.log("lines...", lines);
+            const currentLine = lines[lines.length - 1];
+            //console.log("currentline...", currentLine);
+
+            let newLinePrefix = "";
+
+            const bulletMatch = currentLine.match(/^(\s*[-*+])\s+/);
+            // bulletMatch === bulletMatch[0]
+            // currentLine -> "- Byron",["- ","-"];
+            // const a = bulletMatch?.[0],"- ", bulletMatch[0]
+            //console.log("bulletmatch is yes...", bulletMatch);
+            const numberMatch = currentLine.match(/^(\s*)(\d+)[.)]\s+/);
+            //console.log("numbertmatch is yes...", numberMatch);
+
+            if (bulletMatch) {
+                newLinePrefix = bulletMatch[1] + " ";
+            } else if (numberMatch) {
+                const number = parseInt(numberMatch[2]);
+                const indent = numberMatch[1] || "";
+                newLinePrefix = indent + (number + 1) + ". ";
+            }
+
+            // Auto-remove list formatting on empty line
+            if (
+                (bulletMatch || numberMatch) &&
+                currentLine.trim() ===
+                    (bulletMatch?.[0] || numberMatch?.[0])?.trim()
+            ) {
+                e.preventDefault();
+                const newText =
+                    before
+                        .replace(/\s*[-*+]\s*$/, "")
+                        .replace(/\s*\d+[.)]\s*$/, "") +
+                    "\n" +
+                    after;
+                textareaElement.value = newText;
+            //console.log("newtext is yes...", newText);
+
+                recalculateHeight(); 
+                
+                requestAnimationFrame(() => {
+                    const cursorPosition =
+                        before.length -
+                        ((bulletMatch?.[0] || numberMatch?.[0])?.length || 0) +
+                        1;
+                    textareaElement.selectionStart = cursorPosition;
+                    textareaElement.selectionEnd = cursorPosition;
+                });
+                return;
+            }
+
+            // Continue the list
+            if ( newLinePrefix) {
+                e.preventDefault();
+                const newText = before + "\n" + newLinePrefix + after;
+                textareaElement.value = newText;
+                recalculateHeight();
+
+                requestAnimationFrame(() => {
+                    const cursorPosition =
+                        before.length + 1 + newLinePrefix.length;
+                    textareaElement.selectionStart = cursorPosition;
+                    textareaElement.selectionEnd = cursorPosition;
+                });
+            }
+        }   
+    };
+
     return (
         <div >
             <textarea
@@ -166,6 +250,7 @@ const AutosizeTextarea = React.forwardRef<HTMLTextAreaElement, Props>(({
                 value={value}
                 defaultValue={defaultValue}
                 style={showScrollbar ? styles.textAreaWithScroll : styles.textArea}
+                onKeyDown={handleKeyDown}
             />
             <div style={styles.container}>
                 <div
